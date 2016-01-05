@@ -89,6 +89,7 @@ static struct {
 
 	{ E1000_DEV_ID_PCH_SPT_I219_LM2, board_pch_spt },
 	{ E1000_DEV_ID_PCH_SPT_I219_V2, board_pch_spt },
+	{ E1000_DEV_ID_PCH_LBG_I219_LM3, board_pch_spt },
 
 	{ 0, 0 }	/* terminate list */
 };
@@ -128,6 +129,37 @@ s32 e1000_read_pcie_cap_reg(struct e1000_hw *hw, u32 reg, u16 *value)
 {
 	return -E1000_ERR_CONFIG;
 }
+
+/**
+ * __ew32_prepare - prepare to write to MAC CSR register on certain parts
+ * @hw: pointer to the HW structure
+ *
+ * When updating the MAC CSR registers, the Manageability Engine (ME) could
+ * be accessing the registers at the same time.  Normally, this is handled in
+ * h/w by an arbiter but on some parts there is a bug that acknowledges Host
+ * accesses later than it should which could result in the register to have
+ * an incorrect value.  Workaround this by checking the FWSM register which
+ * has bit 24 set while ME is accessing MAC CSR registers, wait if it is set
+ * and try again a number of times.
+ **/
+s32 __ew32_prepare(struct e1000_hw *hw)
+{
+	s32 i = E1000_ICH_FWSM_PCIM2PCI_COUNT;
+	
+	while ((er32(FWSM) & E1000_ICH_FWSM_PCIM2PCI) && --i)
+		udelay(50);
+	
+	return i;
+}
+
+void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val)
+{
+	if (hw->adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
+		__ew32_prepare(hw);
+	
+	writel(val, hw->hw_addr + reg);
+}
+
 
 // Mutex used in ich8lan.c
 IOLock* swflag_mutex;

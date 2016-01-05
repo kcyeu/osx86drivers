@@ -22,7 +22,7 @@ extern "C" {
 #include "AppleIntelE1000e.h"
 
 #define USE_QUEUE_INPUT	0
-#define	USE_ALWAYS_JUMBO	1
+#define	USE_ALWAYS_JUMBO	0
 #define USE_UDPCSUM	0
 #define CAN_RECOVER_STALL	0
 

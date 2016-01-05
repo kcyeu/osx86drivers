@@ -1,5 +1,4 @@
-/*
- * Intel PRO/1000 Linux driver
+/* Intel PRO/1000 Linux driver
  * Copyright(c) 1999 - 2015 Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -571,7 +570,6 @@ static s32 e1000_init_phy_params_ich8lan(struct e1000_hw *hw)
 		break;
 	default:
 		return -E1000_ERR_PHY;
-		break;
 	}
 
 	return 0;
@@ -592,12 +590,15 @@ static s32 e1000_init_nvm_params_ich8lan(struct e1000_hw *hw)
 	u16 i;
 	u32 nvm_size;
 
-	/* Can't read flash registers if the register set isn't mapped. */
 	nvm->type = e1000_nvm_flash_sw;
-	/* in SPT, gfpreg doesn't exist. NVM size is taken from the
-	 * STRAP register
-	 */
+
 	if (hw->mac.type == e1000_pch_spt) {
+		/* in SPT, gfpreg doesn't exist. NVM size is taken from the
+		 * STRAP register. This is because in SPT the GbE Flash region
+		 * is no longer accessed through the flash registers. Instead,
+		 * the mechanism has changed, and the Flash region access
+		 * registers are now implemented in GbE memory space.
+		 */
 		nvm->flash_base_addr = 0;
 		nvm_size = (((er32(STRAP) >> 1) & 0x1F) + 1)
 		    * NVM_SIZE_MULTIPLIER;
@@ -607,6 +608,7 @@ static s32 e1000_init_nvm_params_ich8lan(struct e1000_hw *hw)
 		/* Set the base address for flash register access */
 		hw->flash_address = hw->hw_addr + E1000_FLASH_BASE_ADDR;
 	} else {
+		/* Can't read flash registers if register set isn't mapped. */
 		if (!hw->flash_address) {
 			e_dbg("ERROR: Flash registers not mapped\n");
 			return -E1000_ERR_CONFIG;
@@ -1232,7 +1234,6 @@ s32 e1000_enable_ulp_lpt_lp(struct e1000_hw *hw, bool to_sx)
 
 	if ((hw->phy.type == e1000_phy_i217) && (hw->phy.revision == 6) &&
 	    to_sx && (er32(STATUS) & E1000_STATUS_LU)) {
-
 		ret_val = e1000_write_phy_reg_hv_locked(hw, HV_OEM_BITS,
 							oem_reg);
 		if (ret_val)
@@ -1289,9 +1290,9 @@ static s32 e1000_disable_ulp_lpt_lp(struct e1000_hw *hw, bool force)
 			ew32(H2ME, mac_reg);
 		}
 
-		/* Poll up to 100msec for ME to clear ULP_CFG_DONE */
+		/* Poll up to 300msec for ME to clear ULP_CFG_DONE. */
 		while (er32(FWSM) & E1000_FWSM_ULP_CFG_DONE) {
-			if (i++ == 10) {
+			if (i++ == 30) {
 				ret_val = -E1000_ERR_PHY;
 				goto out;
 			}
@@ -1365,6 +1366,8 @@ static s32 e1000_disable_ulp_lpt_lp(struct e1000_hw *hw, bool force)
 		     I218_ULP_CONFIG1_RESET_TO_SMBUS |
 		     I218_ULP_CONFIG1_WOL_HOST |
 		     I218_ULP_CONFIG1_INBAND_EXIT |
+		     I218_ULP_CONFIG1_EN_ULP_LANPHYPC |
+		     I218_ULP_CONFIG1_DIS_CLR_STICKY_ON_PERST |
 		     I218_ULP_CONFIG1_DISABLE_SMB_PERST);
 	e1000_write_phy_reg_hv_locked(hw, I218_ULP_CONFIG1, phy_reg);
 
@@ -1469,6 +1472,18 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
 			emi_addr = I217_RX_CONFIG;
 		ret_val = e1000_write_emi_reg_locked(hw, emi_addr, emi_val);
 
+		if (hw->mac.type == e1000_pch_lpt ||
+		    hw->mac.type == e1000_pch_spt) {
+			u16 phy_reg;
+
+			e1e_rphy_locked(hw, I217_PLL_CLOCK_GATE_REG, &phy_reg);
+			phy_reg &= ~I217_PLL_CLOCK_GATE_MASK;
+			if (speed == SPEED_100 || speed == SPEED_10)
+				phy_reg |= 0x3E8;
+			else
+				phy_reg |= 0xFA;
+			e1e_wphy_locked(hw, I217_PLL_CLOCK_GATE_REG, phy_reg);
+		}
 		hw->phy.ops.release(hw);
 
 		if (ret_val)
@@ -1503,6 +1518,18 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
 				hw->phy.ops.release(hw);
 				if (ret_val)
 					return ret_val;
+			} else {
+				ret_val = hw->phy.ops.acquire(hw);
+				if (ret_val)
+					return ret_val;
+
+				ret_val = e1e_wphy_locked(hw,
+							  PHY_REG(776, 20),
+							  0xC023);
+				hw->phy.ops.release(hw);
+				if (ret_val)
+					return ret_val;
+
 			}
 		}
 	}
@@ -1664,7 +1691,7 @@ static s32 e1000_get_variants_ich8lan(struct e1000_adapter *adapter)
 	    ((adapter->hw.mac.type >= e1000_pch2lan) &&
 	     (!(er32(CTRL_EXT) & E1000_CTRL_EXT_LSECCK)))) {
 		adapter->flags &= ~FLAG_HAS_JUMBO_FRAMES;
-		adapter->max_hw_frame_size = ETH_FRAME_LEN + ETH_FCS_LEN;
+		adapter->max_hw_frame_size = VLAN_ETH_FRAME_LEN + ETH_FCS_LEN;
 
 		hw->mac.ops.blink_led = NULL;
 	}
@@ -1899,13 +1926,11 @@ out:
  *  e1000_rar_get_count_pch_lpt - Get the number of available SHRA
  *  @hw: pointer to the HW structure
  *
- *  Get the number of available recieve registers that the Host can
- *  programm. SHRA[0-10] are the shared receive address registers
+ *  Get the number of available receive registers that the Host can
+ *  program. SHRA[0-10] are the shared receive address registers
  *  that are shared between the Host and manageability engine (ME).
  *  ME can reserve any number of addresses and the host needs to be
- *  able to tell how many available registers it has access to so it
- *  can correctly determine if it can program them or turn on
- *  promiscuous mode.
+ *  able to tell how many available registers it has access to.
  **/
 static u32 e1000_rar_get_count_pch_lpt(struct e1000_hw *hw)
 {
@@ -2021,7 +2046,7 @@ static s32 e1000_check_reset_block_ich8lan(struct e1000_hw *hw)
 	int i = 0;
 
 	while ((blocked = !(er32(FWSM) & E1000_ICH_FWSM_RSPCIPHY)) &&
-	       (i++ < 10))
+	       (i++ < 30))
 		usleep_range(10000, 20000);
 	return blocked ? E1000_BLK_PHY_RESET : 0;
 }
@@ -2727,7 +2752,7 @@ release:
  *  @hw:   pointer to the HW structure
  *
  *  Workaround to set the K1 beacon duration for 82579 parts in 10Mbps
- *  Disable K1 for 1000 and 100 speeds
+ *  Disable K1 in 1000Mbps and 100Mbps
  **/
 static s32 e1000_k1_workaround_lv(struct e1000_hw *hw)
 {
@@ -3129,24 +3154,45 @@ static s32 e1000_valid_nvm_bank_detect_ich8lan(struct e1000_hw *hw, u32 *bank)
 	struct e1000_nvm_info *nvm = &hw->nvm;
 	u32 bank1_offset = nvm->flash_bank_size * sizeof(u16);
 	u32 act_offset = E1000_ICH_NVM_SIG_WORD * 2 + 1;
+	u32 nvm_dword = 0;
 	u8 sig_byte = 0;
 	s32 ret_val;
 
 	switch (hw->mac.type) {
-		/* In SPT, read from the CTRL_EXT reg instead of
-		 * accessing the sector valid bits from the nvm
-		 */
 	case e1000_pch_spt:
-		*bank = er32(CTRL_EXT)
-		    & E1000_CTRL_EXT_NVMVS;
-		if ((*bank == 0) || (*bank == 1)) {
-			e_dbg("ERROR: No valid NVM bank present\n");
-			return -E1000_ERR_NVM;
-		} else {
-			*bank = *bank - 2;
+		bank1_offset = nvm->flash_bank_size;
+		act_offset = E1000_ICH_NVM_SIG_WORD;
+
+		/* set bank to 0 in case flash read fails */
+		*bank = 0;
+
+		/* Check bank 0 */
+		ret_val = e1000_read_flash_dword_ich8lan(hw, act_offset,
+							 &nvm_dword);
+		if (ret_val)
+			return ret_val;
+		sig_byte = (u8)((nvm_dword & 0xFF00) >> 8);
+		if ((sig_byte & E1000_ICH_NVM_VALID_SIG_MASK) ==
+		    E1000_ICH_NVM_SIG_VALUE) {
+			*bank = 0;
 			return 0;
 		}
-		break;
+
+		/* Check bank 1 */
+		ret_val = e1000_read_flash_dword_ich8lan(hw, act_offset +
+							 bank1_offset,
+							 &nvm_dword);
+		if (ret_val)
+			return ret_val;
+		sig_byte = (u8)((nvm_dword & 0xFF00) >> 8);
+		if ((sig_byte & E1000_ICH_NVM_VALID_SIG_MASK) ==
+		    E1000_ICH_NVM_SIG_VALUE) {
+			*bank = 1;
+			return 0;
+		}
+
+		e_dbg("ERROR: No valid NVM bank present\n");
+		return -E1000_ERR_NVM;
 	case e1000_ich8lan:
 	case e1000_ich9lan:
 		eecd = er32(EECD);
@@ -5352,17 +5398,17 @@ out:
  *  the PHY.
  *  On i217, setup Intel Rapid Start Technology.
  **/
-u32 e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
+void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
 {
 	s32 ret_val;
 
 	if (hw->mac.type < e1000_pch2lan)
-		return 0;
+		return;
 
 	ret_val = e1000_init_phy_workarounds_pchlan(hw);
 	if (ret_val) {
 		e_dbg("Failed to init PHY flow ret_val=%d\n", ret_val);
-		return ret_val;
+		return;
 	}
 
 	/* For i217 Intel Rapid Start Technology support when the system
@@ -5376,7 +5422,7 @@ u32 e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
 		ret_val = hw->phy.ops.acquire(hw);
 		if (ret_val) {
 			e_dbg("Failed to setup iRST\n");
-			return ret_val;
+			return;
 		}
 
 		/* Clear Auto Enable LPI after link up */
@@ -5407,9 +5453,7 @@ release:
 		if (ret_val)
 			e_dbg("Error %d in resume workarounds\n", ret_val);
 		hw->phy.ops.release(hw);
-		return ret_val;
 	}
-	return 0;
 }
 
 /**
@@ -5675,7 +5719,6 @@ release:
 	}
 }
 
-
 static const struct e1000_mac_operations ich8_mac_ops = {
 	/* check_mng_mode dependent on mac type */
 	.check_for_link		= e1000_check_for_copper_link_ich8lan,
@@ -5714,10 +5757,10 @@ static const struct e1000_phy_operations ich8_phy_ops = {
 
 static const struct e1000_nvm_operations ich8_nvm_ops = {
 	.acquire		= e1000_acquire_nvm_ich8lan,
-	.release		= e1000_release_nvm_ich8lan,
 	.read			= e1000_read_nvm_ich8lan,
-	.update			= e1000_update_nvm_checksum_ich8lan,
+	.release		= e1000_release_nvm_ich8lan,
 	.reload			= e1000e_reload_nvm_generic,
+	.update			= e1000_update_nvm_checksum_ich8lan,
 	.valid_led_default	= e1000_valid_led_default_ich8lan,
 	.validate		= e1000_validate_nvm_checksum_ich8lan,
 	.write			= e1000_write_nvm_ich8lan,
@@ -5746,7 +5789,7 @@ const struct e1000_info e1000_ich8_info = {
 				  | FLAG_HAS_FLASH
 				  | FLAG_APME_IN_WUC,
 	.pba			= 8,
-	.max_hw_frame_size	= ETH_FRAME_LEN + ETH_FCS_LEN,
+	.max_hw_frame_size	= VLAN_ETH_FRAME_LEN + ETH_FCS_LEN,
 	.get_variants		= e1000_get_variants_ich8lan,
 	.mac_ops		= &ich8_mac_ops,
 	.phy_ops		= &ich8_phy_ops,
@@ -5806,7 +5849,7 @@ const struct e1000_info e1000_pch_info = {
 				  | FLAG_HAS_JUMBO_FRAMES
 				  | FLAG_DISABLE_FC_PAUSE_TIME /* errata */
 				  | FLAG_APME_IN_WUC,
-	.flags2                 = FLAG2_HAS_PHY_STATS,
+	.flags2			= FLAG2_HAS_PHY_STATS,
 	.pba			= 26,
 	.max_hw_frame_size	= 4096,
 	.get_variants		= e1000_get_variants_ich8lan,
@@ -5831,7 +5874,7 @@ const struct e1000_info e1000_pch2_info = {
 	.flags2			= FLAG2_HAS_PHY_STATS
 				  | FLAG2_HAS_EEE,
 	.pba			= 26,
-	.max_hw_frame_size	= 9018,
+	.max_hw_frame_size	= 9022,
 	.get_variants		= e1000_get_variants_ich8lan,
 	.mac_ops		= &ich8_mac_ops,
 	.phy_ops		= &ich8_phy_ops,
@@ -5854,7 +5897,7 @@ const struct e1000_info e1000_pch_lpt_info = {
 	.flags2			= FLAG2_HAS_PHY_STATS
 				  | FLAG2_HAS_EEE,
 	.pba			= 26,
-	.max_hw_frame_size	= 9018,
+	.max_hw_frame_size	= 9022,
 	.get_variants		= e1000_get_variants_ich8lan,
 	.mac_ops		= &ich8_mac_ops,
 	.phy_ops		= &ich8_phy_ops,
@@ -5877,7 +5920,7 @@ const struct e1000_info e1000_pch_spt_info = {
 	.flags2			= FLAG2_HAS_PHY_STATS
 				  | FLAG2_HAS_EEE,
 	.pba			= 26,
-	.max_hw_frame_size	= 9018,
+	.max_hw_frame_size	= 9022,
 	.get_variants		= e1000_get_variants_ich8lan,
 	.mac_ops		= &ich8_mac_ops,
 	.phy_ops		= &ich8_phy_ops,

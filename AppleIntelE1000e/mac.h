@@ -1,5 +1,4 @@
-/*
- * Intel PRO/1000 Linux driver
+/* Intel PRO/1000 Linux driver
  * Copyright(c) 1999 - 2015 Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -62,8 +61,8 @@ void e1000e_update_adaptive(struct e1000_hw *hw);
 void e1000_write_vfta_generic(struct e1000_hw *hw, u32 offset, u32 value);
 
 void e1000_set_lan_id_multi_port_pcie(struct e1000_hw *hw);
-int e1000e_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index);
 u32 e1000e_rar_get_count_generic(struct e1000_hw *hw);
+int e1000e_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index);
 void e1000e_config_collision_dist_generic(struct e1000_hw *hw);
 
 #endif

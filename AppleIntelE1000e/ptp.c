@@ -1,5 +1,4 @@
-/*
- * Intel PRO/1000 Linux driver
+/* Intel PRO/1000 Linux driver
  * Copyright(c) 1999 - 2015 Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -183,6 +182,7 @@ static void e1000e_systim_overflow_work(struct work_struct *work)
 
 #ifdef HAVE_PTP_CLOCK_INFO_GETTIME64
 	adapter->ptp_clock_info.gettime64(&adapter->ptp_clock_info, &ts);
+
 	e_dbg("SYSTIM overflow check at %lld.%09lu\n",
 	      (long long) ts.tv_sec, ts.tv_nsec);
 #else

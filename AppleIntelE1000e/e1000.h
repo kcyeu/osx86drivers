@@ -1,5 +1,4 @@
-/*
- * Intel PRO/1000 Linux driver
+/* Intel PRO/1000 Linux driver
  * Copyright(c) 1999 - 2015 Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -446,10 +445,10 @@ struct e1000_adapter {
 #endif
 #ifdef HAVE_PM_QOS_REQUEST_LIST_NEW
 	struct pm_qos_request pm_qos_req;
+
 #elif defined(HAVE_PM_QOS_REQUEST_LIST)
 	struct pm_qos_request_list pm_qos_req;
 #endif
-
 	u16 eee_advert;
 };
 
@@ -711,35 +710,9 @@ static inline u32 __er32(struct e1000_hw *hw, unsigned long reg)
 
 #define er32(reg)	__er32(hw, E1000_##reg)
 
-/**
- * __ew32_prepare - prepare to write to MAC CSR register on certain parts
- * @hw: pointer to the HW structure
- *
- * When updating the MAC CSR registers, the Manageability Engine (ME) could
- * be accessing the registers at the same time.  Normally, this is handled in
- * h/w by an arbiter but on some parts there is a bug that acknowledges Host
- * accesses later than it should which could result in the register to have
- * an incorrect value.  Workaround this by checking the FWSM register which
- * has bit 24 set while ME is accessing MAC CSR registers, wait if it is set
- * and try again a number of times.
- **/
-static inline s32 __ew32_prepare(struct e1000_hw *hw)
-{
-	s32 i = E1000_ICH_FWSM_PCIM2PCI_COUNT;
+extern s32 __ew32_prepare(struct e1000_hw *hw);
 
-	while ((er32(FWSM) & E1000_ICH_FWSM_PCIM2PCI) && --i)
-		udelay(50);
-
-	return i;
-}
-
-static inline void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val)
-{
-	if (hw->adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
-		__ew32_prepare(hw);
-
-	writel(val, (u8*)(hw->hw_addr) + reg);
-}
+extern void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val);
 
 #define ew32(reg, val)	__ew32(hw, E1000_##reg, (val))
 
