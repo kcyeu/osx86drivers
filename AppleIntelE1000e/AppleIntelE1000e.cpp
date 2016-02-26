@@ -982,6 +982,22 @@ void e1000e_reset(struct e1000_adapter *adapter)
 	}
 }
 
+/**
+ * e1000e_trigger_lsc - trigger an LSC interrupt
+ * @adapter: 
+ *
+ * Fire a link status change interrupt to start the watchdog.
+ **/
+static void e1000e_trigger_lsc(struct e1000_adapter *adapter)
+{
+	struct e1000_hw *hw = &adapter->hw;
+
+	if (adapter->msix_entries)
+		ew32(ICS, E1000_ICS_OTHER);
+	else
+		ew32(ICS, E1000_ICS_LSC);
+}
+
 
 /**
  * e1000e_write_mc_addr_list - write multicast addresses to MTA
@@ -2574,10 +2590,7 @@ void AppleIntelE1000e::e1000e_up()
 	workLoop->enableAllInterrupts();
 	
 	/* fire a link change interrupt to start the watchdog */
-	if (adapter->msix_entries)
-		ew32(ICS, E1000_ICS_LSC | E1000_ICR_OTHER);
-	else
-		ew32(ICS, E1000_ICS_LSC);
+	e1000e_trigger_lsc(adapter);
 	
 }
 
