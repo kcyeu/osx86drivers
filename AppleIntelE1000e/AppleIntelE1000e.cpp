@@ -348,7 +348,7 @@ static void e1000_irq_enable(struct e1000_adapter *adapter)
 
 	if (adapter->msix_entries) {
 		ew32(EIAC_82574, adapter->eiac_mask & E1000_EIAC_MASK_82574);
-		ew32(IMS, adapter->eiac_mask | E1000_IMS_OTHER | E1000_IMS_LSC);
+		ew32(IMS, adapter->eiac_mask | E1000_IMS_LSC);
 	} else if ((hw->mac.type == e1000_pch_lpt) ||
 			   (hw->mac.type == e1000_pch_spt)) {
 		ew32(IMS, IMS_ENABLE_MASK | E1000_IMS_ECCER);
@@ -1967,6 +1967,7 @@ static bool e1000e_has_link(struct e1000_adapter *adapter)
 	
 	return link_active;
 }
+
 /////////////////
 
 
@@ -2573,7 +2574,6 @@ IOReturn AppleIntelE1000e::disable(IONetworkInterface * netif)
 void AppleIntelE1000e::e1000e_up()
 {
 	struct e1000_adapter *adapter = &priv_adapter;
-	struct e1000_hw *hw = &adapter->hw;
 	
 	/* hardware has been reset, we need to reload some things */
 	e1000_configure();
