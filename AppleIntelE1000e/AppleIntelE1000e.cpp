@@ -416,7 +416,7 @@ static void e1000_eeprom_checks(struct e1000_adapter *adapter)
 	
 	ret_val = e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &buf);
 	le16_to_cpus(&buf);
-	if (!ret_val && (!(buf & (1 << 0)))) {
+	if (!ret_val && (!(buf & BIT(0)))) {
 		/* Deep Smart Power Down (DSPD) */
 		IOLog("Warning: detected DSPD enabled in EEPROM\n");
 	}
@@ -673,7 +673,7 @@ static void e1000_flush_rx_ring(struct e1000_adapter *adapter)
 	/* update thresholds: prefetch threshold to 31, host threshold to 1
 	 * and make sure the granularity is "descriptors" and not "cache lines"
 	 */
-	rxdctl |= (0x1F | (1 << 8) | E1000_RXDCTL_THRESH_UNIT_DESC);
+	rxdctl |= (0x1F | BIT(8) | E1000_RXDCTL_THRESH_UNIT_DESC);
 	
 	ew32(RXDCTL(0), rxdctl);
 	/* momentarily enable the RX ring for the changes to take effect */
@@ -2190,6 +2190,29 @@ bool AppleIntelE1000e::start(IOService* provider)
 		adapter->hw.mac.type = ei->mac;
 		adapter->max_hw_frame_size = ei->max_hw_frame_size;
 		// adapter->msg_enable = (1 << NETIF_MSG_DRV | NETIF_MSG_PROBE) - 1;
+
+		/* Workaround FLR issues for 82572
+		 * This code disables the FLR (Function Level Reset) via PCIe, in order
+		 * to workaround a bug found while using device passthrough, where the
+		 * interface would become non-responsive.
+		 * NOTE: the FLR bit is Read/Write Once (RWO) in config space, so if
+		 * the BIOS or kernel writes this register * then this workaround will
+		 * not work.
+		 */
+		if (hw->mac.type == e1000_pch2lan) {
+			struct pci_dev *pdev = adapter->pdev;
+			int pos = pci_find_capability(pdev, PCI_CAP_ID_AF);
+			
+			if (pos) {
+				u8 cap;
+				
+				cap = pciDevice->configRead8(pos + PCI_AF_CAP);
+				cap = cap & (~PCI_AF_CAP_FLR);
+				pciDevice->configWrite8(pos + PCI_AF_CAP, cap);
+			} else {
+				e_info("PCI AF capability not found\n");
+			}
+		}
 		
 		adapter->hw.hw_addr = (u8*)(csrPCIAddress->getVirtualAddress());
 		if (adapter->flags & FLAG_HAS_FLASH){
@@ -3233,7 +3256,7 @@ void AppleIntelE1000e::e1000_init_manageability_pt()
 				
 				/* Enable this decision filter in MANC2H */
 				if (mdef)
-					manc2h |= (1 << i);
+					manc2h |= BIT(i);
 				
 				j |= mdef;
 			}
@@ -3246,7 +3269,7 @@ void AppleIntelE1000e::e1000_init_manageability_pt()
 				if (er32(MDEF(i)) == 0) {
 					ew32(MDEF(i), (E1000_MDEF_PORT_623 |
 								   E1000_MDEF_PORT_664));
-					manc2h |= (1 << 1);
+					manc2h |= BIT(1);
 					j++;
 					break;
 				}
@@ -3322,7 +3345,7 @@ void AppleIntelE1000e::e1000_configure_tx()
 		/* set the speed mode bit, we'll clear it if we're not at
 		 * gigabit link later
 		 */
-#define SPEED_MODE_BIT (1 << 21)
+#define SPEED_MODE_BIT BIT(21)
 		tarc |= SPEED_MODE_BIT;
 		ew32(TARC(0), tarc);
 	}
@@ -3428,17 +3451,17 @@ void AppleIntelE1000e::e1000_setup_rctl()
         
 		e1e_rphy(hw, PHY_REG(770, 26), &phy_data);
 		phy_data &= 0xfff8;
-		phy_data |= (1 << 2);
+		phy_data |= BIT(2);
 		e1e_wphy(hw, PHY_REG(770, 26), phy_data);
         
 		mac_data = er32(FFLT_DBG);
-		mac_data |= (1 << 17);
+		mac_data |= BIT(17);
 		ew32(FFLT_DBG, mac_data);
 		
 		if (hw->phy.type == e1000_phy_82577) {
 			e1e_rphy(hw, 22, &phy_data);
 			phy_data &= 0x0fff;
-			phy_data |= (1 << 14);
+			phy_data |= BIT(14);
 			e1e_wphy(hw, 0x10, 0x2823);
 			e1e_wphy(hw, 0x11, 0x0003);
 			e1e_wphy(hw, 22, phy_data);
@@ -4848,8 +4871,8 @@ s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca)
 	    !(er32(TSYNCRXCTL) & E1000_TSYNCRXCTL_ENABLED)) {
 		u32 fextnvm7 = er32(FEXTNVM7);
 		
-		if (!(fextnvm7 & (1 << 0))) {
-			ew32(FEXTNVM7, fextnvm7 | (1 << 0));
+		if (!(fextnvm7 & BIT(0))) {
+			ew32(FEXTNVM7, fextnvm7 | BIT(0));
 			e1e_flush();
 		}
 	}

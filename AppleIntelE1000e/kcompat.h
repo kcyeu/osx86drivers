@@ -320,7 +320,10 @@ struct work_struct {
 #endif /* NETIF_F_RXALL */
 
 
-#define	PCI_CAP_ID_EXP         0x10    /* PCI Express */
+#define	PCI_CAP_ID_EXP			0x10	/* PCI Express */
+#define	PCI_CAP_ID_AF			0x13	/* PCI Advanced Features */
+#define	PCI_AF_CAP		3
+#define	PCI_AF_CAP_FLR	0x02
 
 #define	PCI_EXP_DEVCTL	8
 #define	PCI_EXP_DEVCTL_CERE	0x0001	/* Correctable Error Reporting En. */
@@ -407,6 +410,10 @@ typedef void IOBufferMemoryDescriptor;
 #define	wmb()	OSSynchronizeIO()
 #define	mmiowb()	OSSynchronizeIO()
 #define	rmb()
+
+#ifndef BIT
+#define BIT(nr)         (1UL << (nr))
+#endif
 
 #define	__MODULE_STRING(s)	"x"
 #define synchronize_irq(x)

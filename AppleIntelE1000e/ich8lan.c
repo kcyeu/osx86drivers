@@ -1483,6 +1483,14 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
 			else
 				phy_reg |= 0xFA;
 			e1e_wphy_locked(hw, I217_PLL_CLOCK_GATE_REG, phy_reg);
+
+			if (speed == SPEED_1000) {
+				e1e_rphy_locked(hw, HV_PM_CTRL, &phy_reg);
+
+				phy_reg |= HV_PM_CTRL_K1_CLK_REQ;
+
+				e1e_wphy_locked(hw, HV_PM_CTRL, phy_reg);
+			}
 		}
 		hw->phy.ops.release(hw);
 
@@ -1574,7 +1582,8 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
 		u32 pcieanacfg = er32(PCIEANACFG);
 		u32 fextnvm6 = er32(FEXTNVM6);
 
-		if (pcieanacfg & E1000_FEXTNVM6_K1_OFF_ENABLE)
+		if ((pcieanacfg & E1000_FEXTNVM6_K1_OFF_ENABLE) &&
+		    (hw->dev_spec.ich8lan.disable_k1_off == false))
 			fextnvm6 |= E1000_FEXTNVM6_K1_OFF_ENABLE;
 		else
 			fextnvm6 &= ~E1000_FEXTNVM6_K1_OFF_ENABLE;

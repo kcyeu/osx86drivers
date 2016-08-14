@@ -151,18 +151,18 @@ IOLog("AppleIntelE1000e(Notice): " format, ## arg)
 #define E1000_TXDCTL_DMA_BURST_ENABLE                          \
 	(E1000_TXDCTL_GRAN | /* set descriptor granularity */  \
 	 E1000_TXDCTL_COUNT_DESC |                             \
-	 (1 << 16) | /* wthresh must be +1 more than desired */\
-	 (1 << 8)  | /* hthresh */                             \
+	 (1u << 16) | /* wthresh must be +1 more than desired */\
+	 (1u << 8)  | /* hthresh */                             \
 	 0x1f)       /* pthresh */
 
 #define E1000_RXDCTL_DMA_BURST_ENABLE                          \
 	(0x01000000 | /* set descriptor granularity */         \
-	 (4 << 16)  | /* set writeback threshold    */         \
-	 (4 << 8)   | /* set prefetch threshold     */         \
+	 (4u << 16)  | /* set writeback threshold    */         \
+	 (4u << 8)   | /* set prefetch threshold     */         \
 	 0x20)        /* set hthresh                */
 
-#define E1000_TIDV_FPD (1 << 31)
-#define E1000_RDTR_FPD (1 << 31)
+#define E1000_TIDV_FPD BIT(31)
+#define E1000_RDTR_FPD BIT(31)
 
 enum e1000_boards {
 	board_82571,
