@@ -487,7 +487,9 @@ err:
 int e1000e_setup_rx_resources(struct e1000_ring *rx_ring)
 {
 	struct e1000_adapter *adapter = rx_ring->adapter;
+#ifndef	__APPLE__
 	struct e1000_buffer *buffer_info;
+#endif
 	int i, size, desc_len, err = -ENOMEM;
 	
 	size = sizeof(struct e1000_buffer) * rx_ring->count;
@@ -2102,6 +2104,44 @@ int AppleIntelE1000e::getIntOption(const char *name, int defVal, int maxVal, int
 	return val;
 }
 
+IOService* AppleIntelE1000e::probe(IOService* provider, SInt32* score)
+{
+	struct e1000_adapter *adapter = &priv_adapter;
+	UInt16 devID;
+	IOService* rc = NULL;
+
+	IOPCIDevice* pci = OSDynamicCast(IOPCIDevice, provider);
+	if (pci == NULL){
+		e_dbg("pciDevice cast failed.\n");
+		return NULL;
+	}
+	
+	if (pci->open(this) == false){
+		e_dbg("pciDevice open failed.\n");
+		return NULL;
+	}
+
+	devID = pci->configRead16(kIOPCIConfigDeviceID);
+	IOLog("vendor:device: 0x%x:0x%x.\n", pci->configRead16(kIOPCIConfigVendorID), devID);
+	
+	adapter->ei = e1000_probe(devID);
+	if (adapter->ei) {
+		adapter->pba = adapter->ei->pba;
+		adapter->flags = adapter->ei->flags;
+		adapter->flags2 = adapter->ei->flags2;
+		adapter->hw.adapter = adapter;
+		adapter->hw.mac.type = adapter->ei->mac;
+		adapter->max_hw_frame_size = adapter->ei->max_hw_frame_size;
+		// adapter->msg_enable = (1 << NETIF_MSG_DRV | NETIF_MSG_PROBE) - 1;
+
+		adapter->pdev->device = devID;
+		rc = this;
+	}
+	pci->close(this);
+	
+	return rc;
+}
+
 bool AppleIntelE1000e::start(IOService* provider)
 {
 	e_dbg("AppleIntelE1000e::start(IOService * provider)\n");
@@ -2118,13 +2158,16 @@ bool AppleIntelE1000e::start(IOService* provider)
 		return false;
 	}
 	pciDevice = OSDynamicCast(IOPCIDevice, provider);
-	if (pciDevice == NULL)
+	if (pciDevice == NULL){
+		e_dbg("pciDevice cast failed.\n");
 		return false;
-	
+	}
 
 	pciDevice->retain();
-	if (pciDevice->open(this) == false)
+	if (pciDevice->open(this) == false){
+		e_dbg("pciDevice open failed.\n");
 		return false;
+	}
 	
 #ifdef NETIF_F_TSO
 	useTSO = getBoolOption("NETIF_F_TSO", TRUE);
@@ -2154,8 +2197,6 @@ bool AppleIntelE1000e::start(IOService* provider)
 		
 		// adapter.hw.device_id will be used later
 		adapter->pdev->provider = pciDevice;
-		adapter->pdev->device = pciDevice->configRead16(kIOPCIConfigDeviceID);
-		IOLog("vendor:device: 0x%x:0x%x.\n", pciDevice->configRead16(kIOPCIConfigVendorID), adapter->pdev->device);
 		
 		csrPCIAddress = pciDevice->mapDeviceMemoryWithRegister(kIOPCIConfigBaseAddress0);
 		if (csrPCIAddress == NULL) {
@@ -2168,28 +2209,14 @@ bool AppleIntelE1000e::start(IOService* provider)
             break;
 		
 
-		const e1000_info* ei = e1000_probe(adapter->pdev->device);
-		if (ei == NULL) {
-			break;
-		}
-        {
-            u16 aspm_disable_flag = 0;
-            if (ei->flags2 & FLAG2_DISABLE_ASPM_L0S)
-                aspm_disable_flag = PCIE_LINK_STATE_L0S;
-            if (ei->flags2 & FLAG2_DISABLE_ASPM_L1)
-                aspm_disable_flag |= PCIE_LINK_STATE_L1;
-            if (aspm_disable_flag)
-                e1000e_disable_aspm(pciDevice, aspm_disable_flag);
-        }
+        u16 aspm_disable_flag = 0;
+        if (adapter->ei->flags2 & FLAG2_DISABLE_ASPM_L0S)
+            aspm_disable_flag = PCIE_LINK_STATE_L0S;
+        if (adapter->ei->flags2 & FLAG2_DISABLE_ASPM_L1)
+            aspm_disable_flag |= PCIE_LINK_STATE_L1;
+        if (aspm_disable_flag)
+            e1000e_disable_aspm(pciDevice, aspm_disable_flag);
 		
-		adapter->ei = ei;
-		adapter->pba = ei->pba;
-		adapter->flags = ei->flags;
-		adapter->flags2 = ei->flags2;
-		adapter->hw.adapter = adapter;
-		adapter->hw.mac.type = ei->mac;
-		adapter->max_hw_frame_size = ei->max_hw_frame_size;
-		// adapter->msg_enable = (1 << NETIF_MSG_DRV | NETIF_MSG_PROBE) - 1;
 
 		/* Workaround FLR issues for 82572
 		 * This code disables the FLR (Function Level Reset) via PCIe, in order
@@ -2235,12 +2262,12 @@ bool AppleIntelE1000e::start(IOService* provider)
 		if(err)
 			break;
 
-		memcpy(&hw->mac.ops, ei->mac_ops, sizeof(hw->mac.ops));
-		memcpy(&hw->nvm.ops, ei->nvm_ops, sizeof(hw->nvm.ops));
-		memcpy(&hw->phy.ops, ei->phy_ops, sizeof(hw->phy.ops));
+		memcpy(&hw->mac.ops, adapter->ei->mac_ops, sizeof(hw->mac.ops));
+		memcpy(&hw->nvm.ops, adapter->ei->nvm_ops, sizeof(hw->nvm.ops));
+		memcpy(&hw->phy.ops, adapter->ei->phy_ops, sizeof(hw->phy.ops));
 		
-		if (ei->get_variants) {
-			err = ei->get_variants(adapter);
+		if (adapter->ei->get_variants) {
+			err = adapter->ei->get_variants(adapter);
 			if (err)
 				break;
 		}
@@ -3404,7 +3431,9 @@ void AppleIntelE1000e::e1000_setup_rctl()
 	e1000_adapter *adapter = &priv_adapter;
 	struct e1000_hw *hw = &adapter->hw;
 	u32 rctl, rfctl;
+#ifndef	__APPLE__
 	u32 pages = 0;
+#endif
 
 	/* Workaround Si errata on PCHx - configure jumbo frame flow.
 	 * If jumbo frames not set, program related MAC/PHY registers

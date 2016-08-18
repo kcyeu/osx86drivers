@@ -56,6 +56,7 @@ public:
 	virtual void stop(IOService * provider);
 	virtual bool init(OSDictionary *properties);
 	virtual void free();
+    virtual IOService* probe(IOService* provider,SInt32* score );
 	
 	// --------------------------------------------------
 	// Power Management Support
