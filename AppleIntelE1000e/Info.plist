@@ -9,7 +9,7 @@
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>com.insanelymac.driver.${PRODUCT_NAME}</string>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -28,6 +28,12 @@
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.insanelymac.driver.${PRODUCT_NAME}</string>
+			<key>E1000_CTRL_TFCE</key>
+			<true/>
+			<key>E1000_DEFAULT_RXD</key>
+			<integer>256</integer>
+			<key>E1000_DEFAULT_TXD</key>
+			<integer>256</integer>
 			<key>IOClass</key>
 			<string>${PRODUCT_NAME}</string>
 			<key>IOPCIClassMatch</key>
@@ -36,14 +42,8 @@
 			<string>0x10008086&amp;0x0000ffff</string>
 			<key>IOProviderClass</key>
 			<string>IOPCIDevice</string>
-			<key>E1000_DEFAULT_TXD</key>
-			<integer>256</integer>
-			<key>E1000_DEFAULT_RXD</key>
-			<integer>256</integer>
 			<key>NETIF_F_TSO</key>
 			<false/>
-			<key>E1000_CTRL_TFCE</key>
-			<true/>
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>

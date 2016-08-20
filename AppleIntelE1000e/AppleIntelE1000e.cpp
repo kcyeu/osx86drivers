@@ -2242,7 +2242,7 @@ bool AppleIntelE1000e::start(IOService* provider)
 		}
 		
 		adapter->hw.hw_addr = (u8*)(csrPCIAddress->getVirtualAddress());
-		if (adapter->flags & FLAG_HAS_FLASH){
+        if ((adapter->flags & FLAG_HAS_FLASH) && (hw->mac.type < e1000_pch_spt)){
 			flashPCIAddress = pciDevice->mapDeviceMemoryWithRegister(kIOPCIConfigBaseAddress1);
 			if (flashPCIAddress == NULL) {
 				e_dbg("flashPCIAddress.\n");
