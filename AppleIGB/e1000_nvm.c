@@ -1,7 +1,7 @@
 /*******************************************************************************
 
   Intel(R) Gigabit Ethernet Linux driver
-  Copyright(c) 2007-2014 Intel Corporation.
+  Copyright(c) 2007-2015 Intel Corporation.
 
   This program is free software; you can redistribute it and/or modify it
   under the terms and conditions of the GNU General Public License,
@@ -747,10 +747,6 @@ s32 e1000_read_pba_length_generic(struct e1000_hw *hw, u32 *pba_num_size)
 	return E1000_SUCCESS;
 }
 
-
-
-
-
 /**
  *  e1000_read_mac_addr_generic - Read device MAC address
  *  @hw: pointer to the HW structure
@@ -889,6 +885,7 @@ void e1000_get_fw_version(struct e1000_hw *hw, struct e1000_fw_version *fw_vers)
 	case e1000_82575:
 	case e1000_82576:
 	case e1000_82580:
+	case e1000_i354:
 		hw->nvm.ops.read(hw, NVM_ETRACK_HIWORD, 1, &etrack_test);
 		/* Use this format, unless EETRACK ID exists,
 		 * then use alternate format
@@ -974,5 +971,4 @@ etrack_id:
 				     eeprom_verl;
 	}
 }
-
 

@@ -1,7 +1,7 @@
 /*******************************************************************************
 
   Intel(R) Gigabit Ethernet Linux driver
-  Copyright(c) 2007-2014 Intel Corporation.
+  Copyright(c) 2007-2015 Intel Corporation.
 
   This program is free software; you can redistribute it and/or modify it
   under the terms and conditions of the GNU General Public License,
@@ -675,7 +675,8 @@ void igb_check_options(struct igb_adapter *adapter)
 	{ /* QueuePairs - Enable Tx/Rx queue pairs for interrupt handling */
 		struct igb_option opt = {
 			.type = enable_option,
-			.name = "QueuePairs - Tx/Rx queue pairs for interrupt handling",
+			.name =
+			  "QueuePairs - Tx/Rx queue pairs for interrupt handling",
 			.err  = "defaulting to Enabled",
 			.def  = OPTION_ENABLED
 		};

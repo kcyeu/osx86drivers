@@ -144,6 +144,10 @@ struct __kc_callback_head {
 };
 #define rcu_head __kc_callback_head
 #endif
+#ifndef kfree_rcu
+/* this is placed here due to a lack of rcu_barrier in previous kernels */
+#define kfree_rcu(_ptr, _offset) kfree(_ptr)
+#endif /* kfree_rcu */
 
 #ifndef rounddown_pow_of_two
 #define rounddown_pow_of_two(n) \

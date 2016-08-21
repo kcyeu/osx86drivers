@@ -1,7 +1,7 @@
 /*******************************************************************************
 
   Intel(R) Gigabit Ethernet Linux driver
-  Copyright(c) 2007-2014 Intel Corporation.
+  Copyright(c) 2007-2015 Intel Corporation.
 
   This program is free software; you can redistribute it and/or modify it
   under the terms and conditions of the GNU General Public License,
@@ -96,7 +96,11 @@ struct igb_adapter;
 #endif
 
 #ifdef HAVE_PTP_1588_CLOCK
+#ifdef HAVE_INCLUDE_LINUX_TIMECOUNTER_H
+#include <linux/timecounter.h>
+#else
 #include <linux/clocksource.h>
+#endif /* HAVE_INCLUDE_TIMECOUNTER_H */
 #include <linux/net_tstamp.h>
 #include <linux/ptp_clock_kernel.h>
 #endif /* HAVE_PTP_1588_CLOCK */
@@ -147,7 +151,6 @@ struct igb_adapter;
 #define MAX_EMULATION_MAC_ADDRS           16
 #define OUI_LEN                            3
 #define IGB_MAX_VMDQ_QUEUES                8
-
 
 struct vf_data_storage {
 	unsigned char vf_mac_addresses[ETH_ALEN];
@@ -451,13 +454,15 @@ struct igb_q_vector {
 #ifndef HAVE_NETDEV_NAPI_LIST
 	struct net_device poll_dev;
 #endif
-
+#ifdef	__APPLE__
+	size_t alloc_size;
+#endif
 	/* for dynamic allocation of rings associated with this q_vector */
 	struct igb_ring ring[0] ____cacheline_internodealigned_in_smp;
 };
 
 enum e1000_ring_flags_t {
-#ifndef HAVE_NDO_SET_FEATURES
+#if defined(HAVE_RHEL6_NET_DEVICE_OPS_EXT) || !defined(HAVE_NDO_SET_FEATURES)
 	IGB_RING_FLAG_RX_CSUM,
 #endif
 	IGB_RING_FLAG_RX_SCTP_CSUM,
@@ -592,6 +597,8 @@ struct igb_adapter {
 	u16 link_duplex;
 	u8 port_num;
 
+	u8 __iomem *io_addr; /* for iounmap */
+
 	/* Interrupt Throttle Rate */
 	u32 rx_itr_setting;
 	u32 tx_itr_setting;
@@ -696,6 +703,7 @@ struct igb_adapter {
 	struct delayed_work ptp_overflow_work;
 	struct work_struct ptp_tx_work;
 	struct sk_buff *ptp_tx_skb;
+	struct hwtstamp_config tstamp_config;
 	unsigned long ptp_tx_start;
 	unsigned long last_rx_ptp_check;
 	unsigned long last_rx_timestamp;
@@ -712,7 +720,6 @@ struct igb_adapter {
 	struct i2c_client *i2c_client;
 #endif /* HAVE_I2C_SUPPORT */
 	unsigned long link_check_timeout;
-
 
 	int devrc;
 
@@ -830,10 +837,13 @@ enum e1000_state_t {
 extern char igb_driver_name[];
 extern char igb_driver_version[];
 
+extern int igb_open(struct net_device *netdev);
+extern int igb_close(struct net_device *netdev);
 extern int igb_up(struct igb_adapter *);
 extern void igb_down(struct igb_adapter *);
 extern void igb_reinit_locked(struct igb_adapter *);
 extern void igb_reset(struct igb_adapter *);
+extern int igb_reinit_queues(struct igb_adapter *);
 #ifdef ETHTOOL_SRXFHINDIR
 extern void igb_write_rss_indir_tbl(struct igb_adapter *);
 #endif
@@ -848,7 +858,7 @@ extern void igb_setup_tctl(struct igb_adapter *);
 extern void igb_setup_rctl(struct igb_adapter *);
 extern netdev_tx_t igb_xmit_frame_ring(struct sk_buff *, struct igb_ring *);
 extern void igb_unmap_and_free_tx_resource(struct igb_ring *,
-					struct igb_tx_buffer *);
+								struct igb_tx_buffer *);
 extern void igb_alloc_rx_buffers(struct igb_ring *, u16);
 extern void igb_clean_rx_ring(struct igb_ring *);
 extern int igb_setup_queues(struct igb_adapter *adapter);
@@ -888,6 +898,8 @@ extern void igb_vlan_mode(struct net_device *, u32);
 
 #define E1000_PCS_CFG_IGN_SD	1
 
+int igb_ptp_set_ts_config(struct net_device *netdev, struct ifreq *ifr);
+int igb_ptp_get_ts_config(struct net_device *netdev, struct ifreq *ifr);
 #ifdef IGB_HWMON
 void igb_sysfs_exit(struct igb_adapter *adapter);
 int igb_sysfs_init(struct igb_adapter *adapter);
@@ -899,7 +911,5 @@ int igb_procfs_topdir_init(void);
 void igb_procfs_topdir_exit(void);
 #endif /* IGB_PROCFS */
 #endif /* IGB_HWMON */
-
-
 
 #endif /* _IGB_H_ */
