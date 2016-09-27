@@ -5294,12 +5294,17 @@ bool AppleIntelE1000e::e1000_tx_csum(mbuf_t skb)
 IOReturn AppleIntelE1000e::registerWithPolicyMaker ( IOService * policyMaker )
 {
 	e_dbg("void AppleIntelE1000e::registerWithPolicyMaker()\n");
-	static IOPMPowerState powerStateArray[ 2 ] = {
+#if 1
+    // 2016-09-27
+    return kIOReturnUnsupported;
+#else
+    static IOPMPowerState powerStateArray[ 2 ] = {
 		{ 1,0,0,0,0,0,0,0,0,0,0,0 },
 		{ 1,kIOPMDeviceUsable,kIOPMPowerOn,kIOPMPowerOn,0,0,0,0,0,0,0,0 }
 	};
 	powerState = 1;
 	return policyMaker->registerPowerDriver( this, powerStateArray, 2 );
+#endif
 }
 
 IOReturn AppleIntelE1000e::setPowerState( unsigned long powerStateOrdinal,
