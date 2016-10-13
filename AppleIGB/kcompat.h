@@ -140,7 +140,7 @@ struct work_struct {
 #ifndef rcu_head
 struct __kc_callback_head {
 	struct __kc_callback_head *next;
-	void (*func)(struct callback_head *head);
+	void (*func)(struct callback_head* head);
 };
 #define rcu_head __kc_callback_head
 #endif

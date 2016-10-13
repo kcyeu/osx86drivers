@@ -9911,7 +9911,8 @@ void AppleIGB::startTxQueue()
 {
 	IOLog("AppleIGB::startTxQueue()\n");
 	txMbufCursor = IOMbufNaturalMemoryCursor::withSpecification(_mtu + ETH_HLEN + ETH_FCS_LEN, MAX_SKB_FRAGS);
-	transmitQueue->start();
+	if(txMbufCursor && transmitQueue)
+		transmitQueue->start();
 }
 
 void AppleIGB::stopTxQueue()
